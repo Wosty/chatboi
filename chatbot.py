@@ -10,8 +10,19 @@ import copy
 import sys
 import html
 
+import json
+
 from utils import TextLoader
 from model import Model
+
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
+
+from flask import Flask, request
+
+app = Flask(__name__)
+
+@app.route('/', methods=['POST'])
 
 def main():
     assert sys.version_info >= (3, 3), \
@@ -125,7 +136,8 @@ def possibly_escaped_char(raw_chars):
 def chatbot(net, sess, chars, vocab, max_length, beam_width, relevance, temperature, topn):
     states = initial_state_with_relevance_masking(net, sess, relevance)
     while True:
-        user_input = input('\n> ')
+        #user_input = input('\n> ')
+        user_input = request.get_json()
         user_command_entered, reset, states, relevance, temperature, topn, beam_width = process_user_command(
             user_input, states, relevance, temperature, topn, beam_width)
         if reset: states = initial_state_with_relevance_masking(net, sess, relevance)
@@ -137,12 +149,15 @@ def chatbot(net, sess, chars, vocab, max_length, beam_width, relevance, temperat
                 forward_args={'relevance':relevance, 'mask_reset_token':vocab['\n'], 'forbidden_token':vocab['>'],
                                 'temperature':temperature, 'topn':topn})
             out_chars = []
+            message = ""
             for i, char_token in enumerate(computer_response_generator):
                 out_chars.append(chars[char_token])
-                print(possibly_escaped_char(out_chars), end='', flush=True)
+                #print(possibly_escaped_char(out_chars), end='', flush=True)
+                message = str(message) + str(possibly_escaped_char(out_chars))
                 states = forward_text(net, sess, states, relevance, vocab, chars[char_token])
                 if i >= max_length: break
             states = forward_text(net, sess, states, relevance, vocab, sanitize_text(vocab, "\n> "))
+            send_message(message)
 
 def process_user_command(user_input, states, relevance, temperature, topn, beam_width):
     user_command_entered = False
@@ -321,5 +336,15 @@ def beam_search_generator(sess, net, initial_state, initial_sample,
             beam_outputs = [output[l:] for output in beam_outputs]
         if early_term: return
 
+    def send_message(msg):
+      url  = 'https://api.groupme.com/v3/bots/post'
+
+      data = {
+              'bot_id' : os.getenv('GROUPME_BOT_ID'),
+              'text'   : msg,
+             }
+      request = Request(url, urlencode(data).encode())
+      json = urlopen(request).read().decode()
+        
 if __name__ == '__main__':
     main()
