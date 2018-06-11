@@ -28,7 +28,7 @@ def main():
     assert sys.version_info >= (3, 3), \
     "Must be run in Python 3.3 or later. You are running {}".format(sys.version)
     parser = argparse.ArgumentParser()
-    parser.add_argument('--save_dir', type=str, default='models/reddit',
+    parser.add_argument('--save_dir', type=str, default='models/family',
                        help='model directory to store checkpointed models')
     parser.add_argument('-n', type=int, default=500,
                        help='number of characters to sample')
